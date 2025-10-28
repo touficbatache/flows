@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import ReactFlow, {
   Node,
   Edge,
@@ -40,6 +40,14 @@ export const FlowCanvas = ({
 }: FlowCanvasProps) => {
   const [nodes, setNodes, onNodesChangeInternal] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChangeInternal] = useEdgesState(initialEdges);
+
+  useEffect(() => {
+    setNodes(initialNodes);
+  }, [initialNodes, setNodes]);
+
+  useEffect(() => {
+    setEdges(initialEdges);
+  }, [initialEdges, setEdges]);
 
   const handleNodesChange = useCallback(
     (changes: any) => {
