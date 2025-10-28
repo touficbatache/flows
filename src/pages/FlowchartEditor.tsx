@@ -64,7 +64,7 @@ export default function FlowchartEditor() {
     const newNode: Node = {
       id: `node-${Date.now()}`,
       type: 'custom',
-      position: { x: Math.random() * 300, y: Math.random() * 300 },
+      position: { x: 400, y: 300 },
       data: {
         label: 'New Node',
         description: '',
