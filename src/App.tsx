@@ -20,7 +20,7 @@ const App = () => (
           <Route path="/" element={<Home />} />
           <Route path="/new/edit" element={<FlowchartEditor />} />
           <Route path="/:id/:version" element={<FlowchartPreview />} />
-          <Route path="/:id/:version/edit" element={<FlowchartEditor />} />
+          <Route path="/:id/edit" element={<FlowchartEditor />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

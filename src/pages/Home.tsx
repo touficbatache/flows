@@ -70,7 +70,7 @@ export default function Home() {
                 >
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between">
-                      <span>Flowchart #{id}</span>
+                      <span>{latestVersion.title}</span>
                       <span className="text-sm font-normal text-muted-foreground">
                         v{latestVersion.version}
                       </span>

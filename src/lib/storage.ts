@@ -26,21 +26,27 @@ export interface FlowchartEdge {
 export interface Flowchart {
   id: number;
   version: number;
+  title: string;
   nodes: FlowchartNode[];
   edges: FlowchartEdge[];
   styles: NodeStyle[];
   createdAt: string;
 }
 
-const STORAGE_KEY = 'flowcharts';
+const STORAGE_KEY = "flowcharts";
 
 export const defaultStyles: NodeStyle[] = [
-  { id: 'trigger', name: 'Trigger', icon: '⚡', color: 'hsl(0, 84%, 60%)' },
-  { id: 'agent', name: 'AI Agent', icon: '🤖', color: 'hsl(195, 85%, 45%)' },
-  { id: 'condition', name: 'Condition', icon: '🔀', color: 'hsl(142, 71%, 45%)' },
-  { id: 'action', name: 'Action', icon: '🎯', color: 'hsl(262, 83%, 58%)' },
-  { id: 'database', name: 'Database', icon: '💾', color: 'hsl(220, 13%, 46%)' },
-  { id: 'api', name: 'API', icon: '🔌', color: 'hsl(24, 95%, 53%)' },
+  { id: "trigger", name: "Trigger", icon: "⚡", color: "#ef4343" },
+  { id: "agent", name: "AI Agent", icon: "🤖", color: "#11a4d4" },
+  {
+    id: "condition",
+    name: "Condition",
+    icon: "🔀",
+    color: "hsl(142, 71%, 45%)",
+  },
+  { id: "action", name: "Action", icon: "🎯", color: "#7c3bed" },
+  { id: "database", name: "Database", icon: "💾", color: "#667085" },
+  { id: "api", name: "API", icon: "🔌", color: "#f97015" },
 ];
 
 export function getAllFlowcharts(): Flowchart[] {
@@ -50,17 +56,18 @@ export function getAllFlowcharts(): Flowchart[] {
 
 export function getFlowchart(id: number, version: number): Flowchart | null {
   const flowcharts = getAllFlowcharts();
-  return flowcharts.find(f => f.id === id && f.version === version) || null;
+  return flowcharts.find((f) => f.id === id && f.version === version) || null;
 }
 
 export function getLatestVersion(id: number): number {
   const flowcharts = getAllFlowcharts();
-  const versions = flowcharts.filter(f => f.id === id).map(f => f.version);
+  const versions = flowcharts.filter((f) => f.id === id).map((f) => f.version);
   return versions.length > 0 ? Math.max(...versions) : 0;
 }
 
 export function saveFlowchart(
   id: number,
+  title: string,
   nodes: FlowchartNode[],
   edges: FlowchartEdge[],
   styles: NodeStyle[]
@@ -72,6 +79,7 @@ export function saveFlowchart(
   const newFlowchart: Flowchart = {
     id,
     version: newVersion,
+    title,
     nodes,
     edges,
     styles,
@@ -84,29 +92,27 @@ export function saveFlowchart(
   return newVersion;
 }
 
-export function createNewFlowchart(): { id: number; version: number } {
+export function createNewFlowchart(): {
+  id: number;
+  version: number;
+  title: string;
+} {
   const flowcharts = getAllFlowcharts();
   const maxId = flowcharts.reduce((max, f) => Math.max(max, f.id), 0);
   const newId = maxId + 1;
 
-  const newFlowchart: Flowchart = {
-    id: newId,
-    version: 1,
-    nodes: [],
-    edges: [],
-    styles: defaultStyles,
-    createdAt: new Date().toISOString(),
-  };
-
-  flowcharts.push(newFlowchart);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(flowcharts));
-
-  return { id: newId, version: 1 };
+  return { id: newId, version: 1, title: "Flowchart #" + newId };
 }
 
 export function getAllVersions(id: number): Flowchart[] {
   const flowcharts = getAllFlowcharts();
   return flowcharts
-    .filter(f => f.id === id)
+    .filter((f) => f.id === id)
     .sort((a, b) => b.version - a.version);
+}
+
+export function deleteFlowchart(id: number): void {
+  let flowcharts = getAllFlowcharts();
+  flowcharts = flowcharts.filter((f) => f.id !== id);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(flowcharts));
 }
