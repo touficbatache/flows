@@ -11,6 +11,8 @@ import {
   createNewFlowchart,
   getLatestVersion,
   deleteFlowchart,
+  getAllStyles,
+  saveStyle,
 } from "@/lib/storage";
 import { toast } from "sonner";
 import Toolbar from "@/components/flowchart/Toolbar";
@@ -20,15 +22,16 @@ import { CommandDeleteNode } from "@/commands/CommandDeleteNode";
 import { CommandMoveNode } from "@/commands/CommandMoveNode";
 import { CommandAddEdge } from "@/commands/CommandAddEdge";
 import { CommandDeleteEdge } from "@/commands/CommandDeleteEdge";
+import { CommandEditNode } from "@/commands/CommandEditNode";
 
 export default function FlowchartEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
   const commandStack = useMemo(() => new CommandStack(), []);
 
+  const [styles, setStyles] = useState<NodeStyle[]>([]);
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
-  const [styles, setStyles] = useState<NodeStyle[]>(defaultStyles);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [currentId, setCurrentId] = useState<number | null>(null);
@@ -41,6 +44,7 @@ export default function FlowchartEditor() {
   );
 
   useEffect(() => {
+    setStyles(getAllStyles());
     if (id) {
       const flowchart = getFlowchart(Number(id), currentVersion);
       if (flowchart) {
@@ -50,12 +54,11 @@ export default function FlowchartEditor() {
             type: "custom",
             data: {
               ...node.data,
-              style: flowchart.styles.find((s) => s.id === node.data.styleId),
+              style: getAllStyles().find((s) => s.id === node.data.styleId),
             },
           }))
         );
         setEdges(flowchart.edges);
-        setStyles(flowchart.styles);
         setCurrentId(flowchart.id);
         setCurrentTitle(flowchart.title);
       } else {
@@ -74,6 +77,7 @@ export default function FlowchartEditor() {
       setCurrentTitle(newTitle);
       toast.success("New flowchart created");
     }
+    setStyles(getAllStyles());
   }, [id, currentVersion, navigate]);
 
   useEffect(() => {
@@ -200,26 +204,49 @@ export default function FlowchartEditor() {
 
   const handleSaveNode = useCallback(
     (label: string, description: string, styleId: string) => {
-      setNodes((nds) =>
-        nds.map((node) =>
-          node.id === selectedNodeId
-            ? {
-                ...node,
-                data: {
-                  ...node.data,
-                  label,
-                  description,
-                  styleId,
-                  style: styles.find((s) => s.id === styleId),
-                },
-              }
-            : node
-        )
+      const selectedNode = nodes.find((n) => n.id === selectedNodeId);
+      if (!selectedNode) return;
+
+      const newValue = {
+        label,
+        description,
+        styleId,
+      };
+
+      const previousValue = {
+        label: selectedNode.data.label,
+        description: selectedNode.data.description,
+        styleId: selectedNode.data.styleId,
+      };
+
+      const command = new CommandEditNode(
+        {
+          updateNode: (id, value) => {
+            setNodes((nds) =>
+              nds.map((node) =>
+                node.id === id
+                  ? {
+                      ...node,
+                      data: {
+                        ...node.data,
+                        ...value,
+                        style: styles.find((s) => s.id === value.styleId),
+                      },
+                    }
+                  : node
+              )
+            );
+          },
+        },
+        selectedNodeId,
+        newValue,
+        previousValue
       );
+
+      commandStack.addCommand(command);
       setSelectedNodeId(null);
-      // setHasChanges(true);
     },
-    [selectedNodeId, styles]
+    [nodes, selectedNodeId, styles, commandStack]
   );
 
   const handleDeleteNode = useCallback(
@@ -243,7 +270,8 @@ export default function FlowchartEditor() {
   );
 
   const handleCreateStyle = useCallback((newStyle: NodeStyle) => {
-    setStyles((prevStyles) => [...prevStyles, newStyle]);
+    saveStyle(newStyle);
+    setStyles(getAllStyles());
     setHasChanges(true);
     toast.success("New style created");
   }, []);
@@ -263,15 +291,14 @@ export default function FlowchartEditor() {
         currentId,
         currentTitle,
         cleanNodes,
-        edges,
-        styles
+        edges
       );
       setCurrentVersion(newVersion);
       setHasChanges(false);
       toast.success(`Saved as version ${newVersion}`);
       navigate(`/${currentId}/${newVersion}`, { replace: true });
     }
-  }, [currentId, currentTitle, nodes, edges, styles, navigate]);
+  }, [currentId, currentTitle, nodes, edges, navigate]);
 
   const handleExportJson = useCallback(() => {
     const data = {

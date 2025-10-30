@@ -1,11 +1,16 @@
-import { useState, useEffect } from 'react';
-import { X, Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { NodeStyle } from '@/lib/storage';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { useState, useEffect } from "react";
+import { X, Trash2, Plus, Edit } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { NodeStyle } from "@/lib/storage";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 interface NodeEditPanelProps {
   nodeId: string;
@@ -34,9 +39,9 @@ export const NodeEditPanel = ({
   const [editDescription, setEditDescription] = useState(description);
   const [editStyleId, setEditStyleId] = useState(styleId);
   const [isCreatingStyle, setIsCreatingStyle] = useState(false);
-  const [newStyleName, setNewStyleName] = useState('');
-  const [newStyleIcon, setNewStyleIcon] = useState('');
-  const [newStyleColor, setNewStyleColor] = useState('#3b82f6');
+  const [newStyleName, setNewStyleName] = useState("");
+  const [newStyleIcon, setNewStyleIcon] = useState("");
+  const [newStyleColor, setNewStyleColor] = useState("#3b82f6");
 
   useEffect(() => {
     setEditLabel(label);
@@ -59,9 +64,9 @@ export const NodeEditPanel = ({
       onCreateStyle(newStyle);
       setEditStyleId(newStyle.id);
       setIsCreatingStyle(false);
-      setNewStyleName('');
-      setNewStyleIcon('');
-      setNewStyleColor('#3b82f6');
+      setNewStyleName("");
+      setNewStyleIcon("");
+      setNewStyleColor("#3b82f6");
     }
   };
 
@@ -100,22 +105,38 @@ export const NodeEditPanel = ({
           <Label>Node Style</Label>
           <div className="grid grid-cols-2 gap-2">
             {styles.map((style) => (
-              <button
-                key={style.id}
-                onClick={() => setEditStyleId(style.id)}
-                className={`p-3 rounded-lg border-2 transition-all hover:scale-105 ${
-                  editStyleId === style.id
-                    ? 'ring-2 ring-primary ring-offset-2'
-                    : 'hover:border-primary/50'
-                }`}
-                style={{
-                  borderColor: style.color,
-                  backgroundColor: `${style.color}10`,
-                }}
-              >
-                <div className="text-2xl mb-1">{style.icon}</div>
-                <div className="text-xs font-medium truncate">{style.name}</div>
-              </button>
+              <ContextMenu>
+                <ContextMenuTrigger>
+                  <button
+                    key={style.id}
+                    onClick={() => setEditStyleId(style.id)}
+                    className={`w-full p-3 rounded-lg border-2 transition-all hover:scale-105 ${
+                      editStyleId === style.id
+                        ? "ring-2 ring-primary ring-offset-2"
+                        : "hover:border-primary/50"
+                    }`}
+                    style={{
+                      borderColor: style.color,
+                      backgroundColor: `${style.color}10`,
+                    }}
+                  >
+                    <div className="text-2xl mb-1">{style.icon}</div>
+                    <div className="text-xs font-medium truncate">
+                      {style.name}
+                    </div>
+                  </button>
+                </ContextMenuTrigger>
+                <ContextMenuContent className="w-48">
+                  <ContextMenuItem className="gap-2">
+                    <Edit className="h-4 w-4" />
+                    Edit
+                  </ContextMenuItem>
+                  <ContextMenuItem className="text-destructive focus:text-destructive hover:!bg-destructive hover:!text-destructive-foreground gap-2">
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
             ))}
           </div>
         </div>
@@ -126,7 +147,7 @@ export const NodeEditPanel = ({
             className="w-full"
             onClick={() => setIsCreatingStyle(true)}
           >
-            + Create New Style
+            <Plus className="h-4 w-4" /> Create New Style
           </Button>
         ) : (
           <div className="space-y-3 p-3 border rounded-lg bg-muted/50">
@@ -192,12 +213,12 @@ export const NodeEditPanel = ({
         )}
 
         <Button
-            variant="destructiveOutline"
-            className="w-full"
-            onClick={() => onDeleteNode(nodeId)}
-          >
-            <Trash2 className="h-4 w-4" /> Delete node
-          </Button>
+          variant="destructiveOutline"
+          className="w-full"
+          onClick={() => onDeleteNode(nodeId)}
+        >
+          <Trash2 className="h-4 w-4" /> Delete node
+        </Button>
       </div>
 
       <div className="p-4 border-t">

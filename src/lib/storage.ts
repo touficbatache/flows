@@ -29,13 +29,18 @@ export interface Flowchart {
   title: string;
   nodes: FlowchartNode[];
   edges: FlowchartEdge[];
-  styles: NodeStyle[];
   createdAt: string;
 }
 
-const STORAGE_KEY = "flowcharts";
+export interface GlobalStorage {
+  flowcharts: Flowchart[];
+  styles: NodeStyle[];
+}
 
-export const defaultStyles: NodeStyle[] = [
+const STORAGE_KEY = "flowcharts";
+const GLOBAL_STORAGE_KEY = "globalStorage";
+
+const defaultStyles: NodeStyle[] = [
   { id: "trigger", name: "Trigger", icon: "⚡", color: "#ef4343" },
   { id: "agent", name: "AI Agent", icon: "🤖", color: "#11a4d4" },
   {
@@ -49,9 +54,26 @@ export const defaultStyles: NodeStyle[] = [
   { id: "api", name: "API", icon: "🔌", color: "#f97015" },
 ];
 
+function getGlobalStorage(): GlobalStorage {
+  const data = localStorage.getItem(GLOBAL_STORAGE_KEY);
+  if (data) {
+    return JSON.parse(data);
+  } else {
+    const initialData: GlobalStorage = {
+      flowcharts: [],
+      styles: defaultStyles,
+    };
+    localStorage.setItem(GLOBAL_STORAGE_KEY, JSON.stringify(initialData));
+    return initialData;
+  }
+}
+
+function saveGlobalStorage(globalStorage: GlobalStorage): void {
+  localStorage.setItem(GLOBAL_STORAGE_KEY, JSON.stringify(globalStorage));
+}
+
 export function getAllFlowcharts(): Flowchart[] {
-  const data = localStorage.getItem(STORAGE_KEY);
-  return data ? JSON.parse(data) : [];
+  return getGlobalStorage().flowcharts;
 }
 
 export function getFlowchart(id: number, version: number): Flowchart | null {
@@ -69,10 +91,9 @@ export function saveFlowchart(
   id: number,
   title: string,
   nodes: FlowchartNode[],
-  edges: FlowchartEdge[],
-  styles: NodeStyle[]
+  edges: FlowchartEdge[]
 ): number {
-  const flowcharts = getAllFlowcharts();
+  const globalStorage = getGlobalStorage();
   const latestVersion = getLatestVersion(id);
   const newVersion = latestVersion + 1;
 
@@ -82,12 +103,11 @@ export function saveFlowchart(
     title,
     nodes,
     edges,
-    styles,
     createdAt: new Date().toISOString(),
   };
 
-  flowcharts.push(newFlowchart);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(flowcharts));
+  globalStorage.flowcharts.push(newFlowchart);
+  saveGlobalStorage(globalStorage);
 
   return newVersion;
 }
@@ -97,8 +117,11 @@ export function createNewFlowchart(): {
   version: number;
   title: string;
 } {
-  const flowcharts = getAllFlowcharts();
-  const maxId = flowcharts.reduce((max, f) => Math.max(max, f.id), 0);
+  const globalStorage = getGlobalStorage();
+  const maxId = globalStorage.flowcharts.reduce(
+    (max, f) => Math.max(max, f.id),
+    0
+  );
   const newId = maxId + 1;
 
   return { id: newId, version: 1, title: "Flowchart #" + newId };
@@ -112,7 +135,19 @@ export function getAllVersions(id: number): Flowchart[] {
 }
 
 export function deleteFlowchart(id: number): void {
-  let flowcharts = getAllFlowcharts();
-  flowcharts = flowcharts.filter((f) => f.id !== id);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(flowcharts));
+  const globalStorage = getGlobalStorage();
+  globalStorage.flowcharts = globalStorage.flowcharts.filter(
+    (f) => f.id !== id
+  );
+  saveGlobalStorage(globalStorage);
+}
+
+export function getAllStyles(): NodeStyle[] {
+  return getGlobalStorage().styles;
+}
+
+export function saveStyle(newStyle: NodeStyle): void {
+  const globalStorage = getGlobalStorage();
+  globalStorage.styles.push(newStyle);
+  saveGlobalStorage(globalStorage);
 }

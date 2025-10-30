@@ -2,7 +2,12 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Node, Edge } from "reactflow";
 import { FlowCanvas } from "@/components/flowchart/FlowCanvas";
-import { getFlowchart, getAllVersions, deleteFlowchart } from "@/lib/storage";
+import {
+  getFlowchart,
+  getAllVersions,
+  deleteFlowchart,
+  getAllStyles,
+} from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Edit, FileJson, MoreVertical } from "lucide-react";
 import { toast } from "sonner";
@@ -47,7 +52,7 @@ export default function FlowchartPreview() {
               type: "custom",
               data: {
                 ...node.data,
-                style: flowchart.styles.find((s) => s.id === node.data.styleId),
+                style: getAllStyles().find((s) => s.id === node.data.styleId),
               },
             }))
           );
