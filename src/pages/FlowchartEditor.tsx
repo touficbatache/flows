@@ -50,17 +50,26 @@ export default function FlowchartEditor() {
     if (id) {
       const flowchart = getFlowchart(Number(id), currentVersion);
       if (flowchart) {
+        const normalizedStyles =
+          flowchart.styles?.map((style) => ({
+            ...style,
+            assetType: style.assetType ?? (style.image ? "image" : "emoji"),
+          })) ?? [];
+
         setNodes(
           flowchart.nodes.map((node) => ({
             ...node,
             type: "custom",
             data: {
               ...node.data,
-              style: getAllStyles().find((s) => s.id === node.data.styleId),
+              style: normalizedStyles.find((s) => s.id === node.data.styleId),
             },
           }))
         );
         setEdges(flowchart.edges);
+        setStyles(
+          normalizedStyles.length > 0 ? normalizedStyles : defaultStyles
+        );
         setCurrentId(flowchart.id);
         setCurrentTitle(flowchart.title);
       } else {
@@ -79,7 +88,6 @@ export default function FlowchartEditor() {
       setCurrentTitle(newTitle);
       toast.success("New flowchart created");
     }
-    setStyles(getAllStyles());
   }, [id, currentVersion, navigate]);
 
   useEffect(() => {
@@ -352,9 +360,15 @@ export default function FlowchartEditor() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      const isMac = navigator.userAgentData?.platform
-        ?.toLowerCase()
-        .includes("mac");
+      // userAgentData may not be present on all TS lib versions / browsers
+      const uaData = (
+        navigator as unknown as {
+          userAgentData?: { platform?: string };
+        }
+      ).userAgentData;
+      const isMac =
+        uaData?.platform?.toLowerCase().includes("mac") ||
+        navigator.platform?.toLowerCase().includes("mac");
       const undoKey = isMac
         ? event.metaKey && !event.shiftKey && event.key === "z"
         : event.ctrlKey && !event.shiftKey && event.key === "z";

@@ -6,7 +6,8 @@ import {
   getFlowchart,
   getAllVersions,
   deleteFlowchart,
-  getAllStyles,
+  NodeStyle,
+  defaultStyles,
 } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Edit, FileJson, MoreVertical } from "lucide-react";
@@ -32,6 +33,7 @@ export default function FlowchartPreview() {
 
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
+  const [styles, setStyles] = useState<NodeStyle[]>(defaultStyles);
   const [currentVersion, setCurrentVersion] = useState<number>(0);
   const [currentTitle, setCurrentTitle] = useState<string>(null);
   const [availableVersions, setAvailableVersions] = useState<number[]>([]);
@@ -46,17 +48,28 @@ export default function FlowchartPreview() {
       if (versionToLoad) {
         const flowchart = getFlowchart(Number(id), versionToLoad);
         if (flowchart) {
+          const fc = flowchart as unknown as { styles?: NodeStyle[] };
+
+          const normalizedStyles =
+            fc.styles?.map((style) => ({
+              ...style,
+              assetType: style.assetType ?? (style.image ? "image" : "emoji"),
+            })) ?? [];
+
           setNodes(
             flowchart.nodes.map((node) => ({
               ...node,
               type: "custom",
               data: {
                 ...node.data,
-                style: getAllStyles().find((s) => s.id === node.data.styleId),
+                style: normalizedStyles.find((s) => s.id === node.data.styleId),
               },
             }))
           );
           setEdges(flowchart.edges);
+          setStyles(
+            normalizedStyles.length > 0 ? normalizedStyles : defaultStyles
+          );
           setCurrentVersion(flowchart.version);
           setCurrentTitle(flowchart.title);
         } else {
@@ -194,7 +207,7 @@ export default function FlowchartPreview() {
         <FlowCanvas
           initialNodes={nodes}
           initialEdges={edges}
-          styles={[]}
+          styles={styles}
           isEditable={false}
         />
       </div>

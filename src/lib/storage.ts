@@ -1,8 +1,19 @@
 export interface NodeStyle {
   id: string;
   name: string;
-  icon: string;
   color: string;
+  icon?: string;
+  /**
+   * Data URL for uploaded image when the style uses a custom asset.
+   * Stored directly so styles remain portable in localStorage.
+   */
+  image?: string;
+  /**
+   * Original filename of the uploaded image (stored in public/images).
+   * Useful for referencing the image within the project structure.
+   */
+  imageName?: string;
+  assetType?: "emoji" | "image";
 }
 
 export interface FlowchartNode {
@@ -40,18 +51,49 @@ export interface GlobalStorage {
 const STORAGE_KEY = "flowcharts";
 const GLOBAL_STORAGE_KEY = "globalStorage";
 
-const defaultStyles: NodeStyle[] = [
-  { id: "trigger", name: "Trigger", icon: "⚡", color: "#ef4343" },
-  { id: "agent", name: "AI Agent", icon: "🤖", color: "#11a4d4" },
+export const defaultStyles: NodeStyle[] = [
+  {
+    id: "trigger",
+    name: "Trigger",
+    icon: "⚡",
+    color: "#ef4343",
+    assetType: "emoji",
+  },
+  {
+    id: "agent",
+    name: "AI Agent",
+    icon: "🤖",
+    color: "#11a4d4",
+    assetType: "emoji",
+  },
   {
     id: "condition",
     name: "Condition",
     icon: "🔀",
     color: "hsl(142, 71%, 45%)",
+    assetType: "emoji",
   },
-  { id: "action", name: "Action", icon: "🎯", color: "#7c3bed" },
-  { id: "database", name: "Database", icon: "💾", color: "#667085" },
-  { id: "api", name: "API", icon: "🔌", color: "#f97015" },
+  {
+    id: "action",
+    name: "Action",
+    icon: "🎯",
+    color: "#7c3bed",
+    assetType: "emoji",
+  },
+  {
+    id: "database",
+    name: "Database",
+    icon: "💾",
+    color: "#667085",
+    assetType: "emoji",
+  },
+  {
+    id: "api",
+    name: "API",
+    icon: "🔌",
+    color: "#f97015",
+    assetType: "emoji",
+  },
 ];
 
 function getGlobalStorage(): GlobalStorage {
