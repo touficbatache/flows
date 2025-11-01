@@ -21,6 +21,8 @@ interface NodeEditPanelProps {
   onClose: () => void;
   onSave: (label: string, description: string, styleId: string) => void;
   onCreateStyle: (style: NodeStyle) => void;
+  onEditStyle: (styleId: string, updatedStyle: NodeStyle) => void;
+  onDeleteStyle: (styleId: string) => void;
   onDeleteNode: (nodeId: string) => void;
 }
 
@@ -33,6 +35,8 @@ export const NodeEditPanel = ({
   onClose,
   onSave,
   onCreateStyle,
+  onEditStyle,
+  onDeleteStyle,
   onDeleteNode,
 }: NodeEditPanelProps) => {
   const [editLabel, setEditLabel] = useState(label);
@@ -42,6 +46,7 @@ export const NodeEditPanel = ({
   const [newStyleName, setNewStyleName] = useState("");
   const [newStyleIcon, setNewStyleIcon] = useState("");
   const [newStyleColor, setNewStyleColor] = useState("#3b82f6");
+  const [editingStyle, setEditingStyle] = useState<NodeStyle | null>(null);
 
   useEffect(() => {
     setEditLabel(label);
@@ -62,12 +67,34 @@ export const NodeEditPanel = ({
         color: newStyleColor,
       };
       onCreateStyle(newStyle);
-      setEditStyleId(newStyle.id);
       setIsCreatingStyle(false);
       setNewStyleName("");
       setNewStyleIcon("");
       setNewStyleColor("#3b82f6");
     }
+  };
+
+  const handleEditStyleSave = () => {
+    if (editingStyle) {
+      const updatedStyle: NodeStyle = {
+        ...editingStyle,
+        name: newStyleName || editingStyle.name,
+        icon: newStyleIcon || editingStyle.icon,
+        color: newStyleColor || editingStyle.color,
+      };
+      onEditStyle(updatedStyle.id, updatedStyle);
+      setEditingStyle(null);
+      setNewStyleName("");
+      setNewStyleIcon("");
+      setNewStyleColor("#3b82f6");
+    }
+  };
+
+  const handleEditStyleClick = (style: NodeStyle) => {
+    setEditingStyle(style);
+    setNewStyleName(style.name);
+    setNewStyleIcon(style.icon);
+    setNewStyleColor(style.color);
   };
 
   return (
@@ -105,10 +132,9 @@ export const NodeEditPanel = ({
           <Label>Node Style</Label>
           <div className="grid grid-cols-2 gap-2">
             {styles.map((style) => (
-              <ContextMenu>
+              <ContextMenu key={style.id}>
                 <ContextMenuTrigger>
                   <button
-                    key={style.id}
                     onClick={() => setEditStyleId(style.id)}
                     className={`w-full p-3 rounded-lg border-2 transition-all hover:scale-105 ${
                       editStyleId === style.id
@@ -127,11 +153,17 @@ export const NodeEditPanel = ({
                   </button>
                 </ContextMenuTrigger>
                 <ContextMenuContent className="w-48">
-                  <ContextMenuItem className="gap-2">
+                  <ContextMenuItem
+                    className="gap-2"
+                    onClick={() => handleEditStyleClick(style)}
+                  >
                     <Edit className="h-4 w-4" />
                     Edit
                   </ContextMenuItem>
-                  <ContextMenuItem className="text-destructive focus:text-destructive hover:!bg-destructive hover:!text-destructive-foreground gap-2">
+                  <ContextMenuItem
+                    className="text-destructive focus:text-destructive hover:!bg-destructive hover:!text-destructive-foreground gap-2"
+                    onClick={() => onDeleteStyle(style.id)}
+                  >
                     <Trash2 className="h-4 w-4" />
                     Delete
                   </ContextMenuItem>
@@ -141,15 +173,79 @@ export const NodeEditPanel = ({
           </div>
         </div>
 
-        {!isCreatingStyle ? (
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => setIsCreatingStyle(true)}
-          >
-            <Plus className="h-4 w-4" /> Create New Style
-          </Button>
-        ) : (
+        {!editingStyle &&
+          (!isCreatingStyle ? (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setIsCreatingStyle(true)}
+            >
+              <Plus className="h-4 w-4" /> Create New Style
+            </Button>
+          ) : (
+            <div className="space-y-3 p-3 border rounded-lg bg-muted/50">
+              <div className="space-y-2">
+                <Label htmlFor="styleName">Style Name</Label>
+                <Input
+                  id="styleName"
+                  value={newStyleName}
+                  onChange={(e) => setNewStyleName(e.target.value)}
+                  placeholder="e.g., Email Service"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="styleIcon">Icon (emoji)</Label>
+                <Input
+                  id="styleIcon"
+                  value={newStyleIcon}
+                  onChange={(e) => setNewStyleIcon(e.target.value)}
+                  placeholder="e.g., 📧"
+                  maxLength={2}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="styleColor">Color</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="styleColor"
+                    type="color"
+                    value={newStyleColor}
+                    onChange={(e) => setNewStyleColor(e.target.value)}
+                    className="w-20 h-10"
+                  />
+                  <Input
+                    value={newStyleColor}
+                    onChange={(e) => setNewStyleColor(e.target.value)}
+                    placeholder="#3b82f6"
+                    className="flex-1"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setIsCreatingStyle(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  className="flex-1"
+                  onClick={handleCreateStyle}
+                  disabled={!newStyleName || !newStyleIcon}
+                >
+                  Create
+                </Button>
+              </div>
+            </div>
+          ))}
+
+        {editingStyle && (
           <div className="space-y-3 p-3 border rounded-lg bg-muted/50">
             <div className="space-y-2">
               <Label htmlFor="styleName">Style Name</Label>
@@ -196,17 +292,17 @@ export const NodeEditPanel = ({
                 variant="outline"
                 size="sm"
                 className="flex-1"
-                onClick={() => setIsCreatingStyle(false)}
+                onClick={() => setEditingStyle(null)}
               >
                 Cancel
               </Button>
               <Button
                 size="sm"
                 className="flex-1"
-                onClick={handleCreateStyle}
+                onClick={handleEditStyleSave}
                 disabled={!newStyleName || !newStyleIcon}
               >
-                Create
+                Save Changes
               </Button>
             </div>
           </div>

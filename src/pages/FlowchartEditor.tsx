@@ -13,6 +13,8 @@ import {
   deleteFlowchart,
   getAllStyles,
   saveStyle,
+  updateStyle,
+  deleteStyle,
 } from "@/lib/storage";
 import { toast } from "sonner";
 import Toolbar from "@/components/flowchart/Toolbar";
@@ -272,8 +274,26 @@ export default function FlowchartEditor() {
   const handleCreateStyle = useCallback((newStyle: NodeStyle) => {
     saveStyle(newStyle);
     setStyles(getAllStyles());
-    setHasChanges(true);
     toast.success("New style created");
+  }, []);
+
+  const handleEditStyle = useCallback(
+    (styleId: string, updatedStyle: NodeStyle) => {
+      updateStyle(updatedStyle);
+      setStyles((prevStyles) =>
+        prevStyles.map((style) => (style.id === styleId ? updatedStyle : style))
+      );
+      toast.success("Style updated");
+    },
+    []
+  );
+
+  const handleDeleteStyle = useCallback((styleId: string) => {
+    deleteStyle(styleId);
+    setStyles((prevStyles) =>
+      prevStyles.filter((style) => style.id !== styleId)
+    );
+    toast.success("Style deleted");
   }, []);
 
   const handleSave = useCallback(() => {
@@ -524,6 +544,8 @@ export default function FlowchartEditor() {
             onClose={() => setSelectedNodeId(null)}
             onSave={handleSaveNode}
             onCreateStyle={handleCreateStyle}
+            onEditStyle={handleEditStyle}
+            onDeleteStyle={handleDeleteStyle}
             onDeleteNode={handleDeleteNode}
           />
         )}

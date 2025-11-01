@@ -151,3 +151,19 @@ export function saveStyle(newStyle: NodeStyle): void {
   globalStorage.styles.push(newStyle);
   saveGlobalStorage(globalStorage);
 }
+
+export function updateStyle(updatedStyle: NodeStyle): void {
+  const globalStorage = getGlobalStorage();
+  globalStorage.styles = globalStorage.styles.map((style) =>
+    style.id === updatedStyle.id ? updatedStyle : style
+  );
+  saveGlobalStorage(globalStorage);
+}
+
+export function deleteStyle(styleId: string): void {
+  const globalStorage = getGlobalStorage();
+  globalStorage.styles = globalStorage.styles.filter(
+    (style) => style.id !== styleId
+  );
+  saveGlobalStorage(globalStorage);
+}
