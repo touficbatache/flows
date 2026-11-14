@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local secrets and scraped data
+.env
+test.sh
+zapier_*.json
+resp.json

@@ -1,10 +1,10 @@
-import { useState, useEffect, ChangeEvent } from "react";
-import { X, Trash2, Plus, Edit } from "lucide-react";
+import { useState, useEffect, useRef, ChangeEvent } from "react";
+import { X, Trash2, Plus, Edit, History, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { NodeStyle } from "@/lib/storage";
+import { NodeStyle, CreateNodeStyleInput, searchStyles } from "@/lib/storage";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -18,11 +18,17 @@ interface NodeEditPanelProps {
   description: string;
   styleId: string;
   styles: NodeStyle[];
+  recentStyles: NodeStyle[];
   onClose: () => void;
   onSave: (label: string, description: string, styleId: string) => void;
-  onCreateStyle: (style: NodeStyle) => void;
-  onEditStyle: (styleId: string, updatedStyle: NodeStyle) => void;
-  onDeleteStyle: (styleId: string) => void;
+  onCreateStyle: (style: CreateNodeStyleInput) => Promise<NodeStyle>;
+  onEditStyle: (
+    styleId: string,
+    updatedStyle: CreateNodeStyleInput
+  ) => Promise<NodeStyle>;
+  onDeleteStyle: (styleId: string) => Promise<void>;
+  onStyleSelected: (style: NodeStyle) => Promise<NodeStyle | void>;
+  onRemoveRecentlyUsed: (styleId: string) => Promise<void>;
   onDeleteNode: (nodeId: string) => void;
 }
 
@@ -32,11 +38,14 @@ export const NodeEditPanel = ({
   description,
   styleId,
   styles,
+  recentStyles,
   onClose,
   onSave,
   onCreateStyle,
   onEditStyle,
   onDeleteStyle,
+  onStyleSelected,
+  onRemoveRecentlyUsed,
   onDeleteNode,
 }: NodeEditPanelProps) => {
   const [editLabel, setEditLabel] = useState(label);
@@ -56,12 +65,53 @@ export const NodeEditPanel = ({
     string | null
   >(null);
   const [editingStyle, setEditingStyle] = useState<NodeStyle | null>(null);
+  const [isStyleSubmitting, setIsStyleSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<NodeStyle[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isApplyingStyle, setIsApplyingStyle] = useState(false);
+  const searchTokenRef = useRef(0);
 
   useEffect(() => {
     setEditLabel(label);
     setEditDescription(description);
     setEditStyleId(styleId);
   }, [nodeId, label, description, styleId]);
+
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (trimmed.length < 2) {
+      searchTokenRef.current += 1;
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    const token = ++searchTokenRef.current;
+    setIsSearching(true);
+
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const results = await searchStyles(trimmed);
+        if (searchTokenRef.current === token) {
+          setSearchResults(results);
+        }
+      } catch (error) {
+        console.error("Failed to search styles", error);
+        if (searchTokenRef.current === token) {
+          setSearchResults([]);
+        }
+      } finally {
+        if (searchTokenRef.current === token) {
+          setIsSearching(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [searchQuery, searchStyles]);
 
   const handleSave = () => {
     onSave(editLabel, editDescription, editStyleId);
@@ -102,7 +152,11 @@ export const NodeEditPanel = ({
       editingStyle.assetType === "image" &&
       editingStyle.image
     ) {
-      setNewStyleImageFileName(editingStyle.imageName);
+      setNewStyleImageFileName(
+        editingStyle.imageName
+          ? editingStyle.imageName.replace(/^images\//, "")
+          : null
+      );
       setNewStyleImagePreview(editingStyle.image);
     } else {
       setNewStyleImageFileName(null);
@@ -110,64 +164,114 @@ export const NodeEditPanel = ({
     }
   }, [editingStyle, newStyleAssetType]);
 
-  const handleCreateStyle = () => {
-    if (!newStyleName) return;
+  const handleCreateStyle = async () => {
+    if (!newStyleName || isStyleSubmitting) return;
 
-    const baseStyle = {
-      id: `custom-${Date.now()}`,
+    const baseStyle: CreateNodeStyleInput = {
       name: newStyleName,
       color: newStyleColor,
     };
 
-    if (newStyleAssetType === "emoji") {
-      if (!newStyleIcon) return;
+    try {
+      setIsStyleSubmitting(true);
 
-      const newStyle: NodeStyle = {
+      if (newStyleAssetType === "emoji") {
+        if (!newStyleIcon) return;
+
+        const created = await onCreateStyle({
+          ...baseStyle,
+          icon: newStyleIcon,
+          assetType: "emoji",
+          image: null,
+          imageName: null,
+        });
+        setEditStyleId(created.id);
+        resetStyleCreation();
+        return;
+      }
+
+      if (!newStyleImagePreview || !newStyleImageFileName) return;
+
+      const created = await onCreateStyle({
         ...baseStyle,
-        icon: newStyleIcon,
-        assetType: "emoji",
-      };
-      onCreateStyle(newStyle);
-      setIsCreatingStyle(false);
-      setNewStyleName("");
-      setNewStyleIcon("");
-      setNewStyleColor("#3b82f6");
+        icon: null,
+        image: newStyleImagePreview,
+        imageName: `images/${newStyleImageFileName}`,
+        assetType: "image",
+      });
+      setEditStyleId(created.id);
       resetStyleCreation();
-      return;
+    } catch (error) {
+      console.error("Failed to create style", error);
+    } finally {
+      setIsStyleSubmitting(false);
     }
-
-    if (!newStyleImagePreview || !newStyleImageFileName) return;
-
-    const newStyle: NodeStyle = {
-      ...baseStyle,
-      image: newStyleImagePreview,
-      imageName: `images/${newStyleImageFileName}`,
-      assetType: "image",
-    };
-
-    onCreateStyle(newStyle);
-    setEditStyleId(newStyle.id);
-    resetStyleCreation();
   };
 
   const isCreateDisabled =
     !newStyleName ||
     (newStyleAssetType === "emoji" && !newStyleIcon) ||
-    (newStyleAssetType === "image" && !newStyleImagePreview);
+    (newStyleAssetType === "image" && !newStyleImagePreview) ||
+    isStyleSubmitting;
 
-  const handleEditStyleSave = () => {
-    if (editingStyle) {
-      const updatedStyle: NodeStyle = {
-        ...editingStyle,
-        name: newStyleName || editingStyle.name,
-        icon: newStyleIcon || editingStyle.icon,
-        color: newStyleColor || editingStyle.color,
+  const handleEditStyleSave = async () => {
+    if (!editingStyle || isStyleSubmitting) return;
+
+    const base: CreateNodeStyleInput = {
+      name: newStyleName || editingStyle.name,
+      color: newStyleColor || editingStyle.color,
+    };
+
+    const buildPayload = (): CreateNodeStyleInput | null => {
+      if (newStyleAssetType === "emoji") {
+        const iconValue = newStyleIcon || editingStyle.icon;
+        if (!iconValue) {
+          return null;
+        }
+        return {
+          ...base,
+          icon: iconValue,
+          image: null,
+          imageName: null,
+          assetType: "emoji",
+        };
+      }
+
+      const imageValue =
+        newStyleImagePreview ?? editingStyle.image ?? undefined;
+      const imageNameValue = newStyleImageFileName
+        ? `images/${newStyleImageFileName}`
+        : editingStyle.imageName ?? undefined;
+
+      if (!imageValue || !imageNameValue) {
+        return null;
+      }
+
+      return {
+        ...base,
+        icon: null,
+        image: imageValue,
+        imageName: imageNameValue,
+        assetType: "image",
       };
-      onEditStyle(updatedStyle.id, updatedStyle);
+    };
+
+    const payload = buildPayload();
+    if (!payload) return;
+
+    try {
+      setIsStyleSubmitting(true);
+      await onEditStyle(editingStyle.id, payload);
       setEditingStyle(null);
       setNewStyleName("");
       setNewStyleIcon("");
       setNewStyleColor("#3b82f6");
+      setNewStyleImageFileName(null);
+      setNewStyleImagePreview(null);
+    } catch (error) {
+      console.error("Failed to update style", error);
+    } finally {
+      setIsStyleSubmitting(false);
     }
   };
 
@@ -177,6 +281,24 @@ export const NodeEditPanel = ({
     setNewStyleIcon(style.icon);
     setNewStyleColor(style.color);
     setNewStyleAssetType(style.assetType ?? (style.image ? "image" : "emoji"));
+  };
+
+  const handleStyleSelect = async (style: NodeStyle) => {
+    if (isApplyingStyle) return;
+    try {
+      setIsApplyingStyle(true);
+      const result = await onStyleSelected(style);
+      const resolved = result ?? style;
+      setEditStyleId(resolved.id);
+      if (searchQuery) {
+        setSearchQuery("");
+        setSearchResults([]);
+      }
+    } catch (error) {
+      console.error("Failed to apply style", error);
+    } finally {
+      setIsApplyingStyle(false);
+    }
   };
 
   return (
@@ -210,59 +332,183 @@ export const NodeEditPanel = ({
           />
         </div>
 
-        <div className="space-y-2">
-          <Label>Node Style</Label>
-          <div className="grid grid-cols-2 gap-2">
-            {styles.map((style) => (
-              <ContextMenu key={style.id}>
-                <ContextMenuTrigger>
-                  <button
-                    onClick={() => setEditStyleId(style.id)}
-                    className={`w-full p-3 rounded-lg border-2 transition-all hover:scale-105 ${
-                      editStyleId === style.id
-                        ? "ring-2 ring-primary ring-offset-2"
-                        : "hover:border-primary/50"
-                    }`}
-                    style={{
-                      borderColor: style.color,
-                      backgroundColor: `${style.color}10`,
-                    }}
-                  >
-                    <div className="flex items-center justify-center mb-1 h-10">
-                      {style.image &&
-                      (style.assetType === "image" || !style.assetType) ? (
-                        <img
-                          src={style.image}
-                          alt={style.name}
-                          className="h-10 w-10 object-contain rounded"
-                        />
-                      ) : (
-                        <span className="text-2xl">{style.icon || "📄"}</span>
-                      )}
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="styleSearch">Search Styles</Label>
+            <div className="relative">
+              <Input
+                id="styleSearch"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search styles…"
+                autoComplete="off"
+              />
+              {searchQuery.trim().length > 0 &&
+                searchQuery.trim().length < 2 && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Type at least 2 characters to search.
+                  </p>
+                )}
+              {searchQuery.trim().length >= 2 && (
+                <div className="absolute left-0 right-0 top-full z-40 mt-2 max-h-64 overflow-y-auto rounded-md border bg-popover shadow-lg">
+                  {isSearching ? (
+                    <div className="flex items-center gap-2 p-3 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Searching…
                     </div>
-                    <div className="text-xs font-medium truncate">
-                      {style.name}
+                  ) : searchResults.length > 0 ? (
+                    searchResults.map((style) => (
+                      <button
+                        key={style.id}
+                        type="button"
+                        onClick={() => handleStyleSelect(style)}
+                        disabled={isApplyingStyle}
+                        className={`flex w-full items-center gap-3 p-3 text-left text-sm transition hover:bg-muted ${
+                          editStyleId === style.id ? "bg-muted" : ""
+                        } ${isApplyingStyle ? "opacity-60" : ""}`}
+                      >
+                        <div
+                          className="flex h-8 w-8 items-center justify-center rounded-md border"
+                          style={{ borderColor: style.color }}
+                        >
+                          {style.image &&
+                          (style.assetType === "image" || !style.assetType) ? (
+                            <img
+                              src={style.image}
+                              alt={style.name}
+                              className="h-6 w-6 object-contain rounded"
+                            />
+                          ) : (
+                            <span className="text-lg">
+                              {style.icon || "📄"}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-1 flex-col">
+                          <span className="font-medium">{style.name}</span>
+                          {style.description && (
+                            <span className="text-xs text-muted-foreground line-clamp-1">
+                              {style.description}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="p-3 text-sm text-muted-foreground">
+                      No styles found.
                     </div>
-                  </button>
-                </ContextMenuTrigger>
-                <ContextMenuContent className="w-48">
-                  <ContextMenuItem
-                    className="gap-2"
-                    onClick={() => handleEditStyleClick(style)}
-                  >
-                    <Edit className="h-4 w-4" />
-                    Edit
-                  </ContextMenuItem>
-                  <ContextMenuItem
-                    className="text-destructive focus:text-destructive hover:!bg-destructive hover:!text-destructive-foreground gap-2"
-                    onClick={() => onDeleteStyle(style.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Delete
-                  </ContextMenuItem>
-                </ContextMenuContent>
-              </ContextMenu>
-            ))}
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Recently Used</Label>
+            {recentStyles.length > 0 ? (
+              <div className="grid grid-cols-2 gap-2">
+                {recentStyles.map((style) => (
+                  <ContextMenu key={`${style.id}-recent`}>
+                    <ContextMenuTrigger>
+                      <button
+                        type="button"
+                        onClick={() => handleStyleSelect(style)}
+                        disabled={isApplyingStyle}
+                        className={`w-full rounded-lg border-2 p-3 transition-all hover:scale-105 ${
+                          editStyleId === style.id
+                            ? "ring-2 ring-primary ring-offset-2"
+                            : "hover:border-primary/50"
+                        } ${isApplyingStyle ? "opacity-60" : ""}`}
+                        style={{
+                          borderColor: style.color,
+                          backgroundColor: `${style.color}10`,
+                        }}
+                      >
+                        <div className="mb-1 flex h-10 items-center justify-center">
+                          {style.image &&
+                          (style.assetType === "image" || !style.assetType) ? (
+                            <img
+                              src={style.image}
+                              alt={style.name}
+                              className="h-10 w-10 rounded object-contain"
+                            />
+                          ) : (
+                            <span className="text-2xl">
+                              {style.icon || "📄"}
+                            </span>
+                          )}
+                        </div>
+                        <div className="truncate text-xs font-medium">
+                          {style.name}
+                        </div>
+                      </button>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent className="w-56">
+                      {style.isCustom ? (
+                        <>
+                          <ContextMenuItem
+                            className="gap-2"
+                            onClick={() => handleEditStyleClick(style)}
+                          >
+                            <Edit className="h-4 w-4" />
+                            Edit
+                          </ContextMenuItem>
+                          <ContextMenuItem
+                            className="gap-2 text-destructive focus:text-destructive hover:!bg-destructive hover:!text-destructive-foreground"
+                            onClick={async () => {
+                              try {
+                                await onDeleteStyle(style.id);
+                                if (editingStyle?.id === style.id) {
+                                  setEditingStyle(null);
+                                  resetStyleCreation();
+                                }
+                                setEditStyleId((prev) => {
+                                  if (prev !== style.id) return prev;
+                                  const fallback =
+                                    recentStyles.find(
+                                      (candidate) => candidate.id !== style.id
+                                    ) ??
+                                    styles.find(
+                                      (candidate) => candidate.id !== style.id
+                                    );
+                                  return fallback ? fallback.id : "";
+                                });
+                              } catch (error) {
+                                console.error("Failed to delete style", error);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Delete
+                          </ContextMenuItem>
+                        </>
+                      ) : null}
+                      <ContextMenuItem
+                        className="gap-2 text-muted-foreground focus:text-muted-foreground"
+                        onClick={async () => {
+                          try {
+                            await onRemoveRecentlyUsed(style.id);
+                          } catch (error) {
+                            console.error(
+                              "Failed to remove style from recently used",
+                              error
+                            );
+                          }
+                        }}
+                      >
+                        <History className="h-4 w-4" />
+                        Remove from Recently Used
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                No recently used styles yet. Use the search above to pick one.
+              </p>
+            )}
           </div>
         </div>
 

@@ -3,18 +3,23 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Node, Edge } from "reactflow";
 import { FlowCanvas } from "@/components/flowchart/FlowCanvas";
 import { NodeEditPanel } from "@/components/flowchart/NodeEditPanel";
+import { Button } from "@/components/ui/button";
 import {
   getFlowchart,
   saveFlowchart,
   defaultStyles,
   NodeStyle,
+  CreateNodeStyleInput,
   createNewFlowchart,
   getLatestVersion,
   deleteFlowchart,
   getAllStyles,
+  getRecentlyUsedStyles,
   saveStyle,
   updateStyle,
   deleteStyle,
+  markStyleAsRecentlyUsed,
+  removeStyleFromRecentlyUsed,
 } from "@/lib/storage";
 import { toast } from "sonner";
 import Toolbar from "@/components/flowchart/Toolbar";
@@ -31,30 +36,88 @@ export default function FlowchartEditor() {
   const navigate = useNavigate();
   const commandStack = useMemo(() => new CommandStack(), []);
 
-  const [styles, setStyles] = useState<NodeStyle[]>([]);
+  const [styles, setStyles] = useState<NodeStyle[]>(defaultStyles);
+  const [recentStyles, setRecentStyles] = useState<NodeStyle[]>([]);
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [currentId, setCurrentId] = useState<number | null>(null);
   const [currentTitle, setCurrentTitle] = useState<string>(null);
-  const [currentVersion, setCurrentVersion] = useState<number | null>(
-    getLatestVersion(Number(id))
-  );
+  const [currentVersion, setCurrentVersion] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const nodeDragStartRef = useRef<{ id: string; x: number; y: number } | null>(
     null
   );
 
+  const normalizeStyles = useCallback(
+    (list: NodeStyle[]) =>
+      (list ?? []).map((style) => ({
+        ...style,
+        assetType: style.assetType ?? (style.image ? "image" : "emoji"),
+      })),
+    []
+  );
+
   useEffect(() => {
-    setStyles(getAllStyles());
-    if (id) {
-      const flowchart = getFlowchart(Number(id), currentVersion);
-      if (flowchart) {
-        const normalizedStyles =
-          flowchart.styles?.map((style) => ({
-            ...style,
-            assetType: style.assetType ?? (style.image ? "image" : "emoji"),
-          })) ?? [];
+    let isMounted = true;
+
+    const load = async () => {
+      try {
+        setIsLoading(true);
+
+        const [loadedStyles, loadedRecent] = await Promise.all([
+          getAllStyles(),
+          getRecentlyUsedStyles(),
+        ]);
+        if (!isMounted) return;
+
+        const normalizedGlobalStyles =
+          normalizeStyles(
+            loadedStyles.length > 0 ? loadedStyles : defaultStyles
+          ) ?? [];
+        const normalizedRecentStyles = normalizeStyles(loadedRecent ?? []);
+
+        if (!id) {
+          setStyles(normalizedGlobalStyles);
+          setRecentStyles(normalizedRecentStyles);
+          const created = await createNewFlowchart();
+          if (!isMounted) return;
+          setCurrentId(created.id);
+          setCurrentVersion(created.version);
+          setCurrentTitle(created.title);
+          setHasChanges(false);
+          setLoadError(null);
+          toast.success("New flowchart created");
+          return;
+        }
+
+        const flowchartId = Number(id);
+        if (Number.isNaN(flowchartId)) {
+          toast.error("Invalid flowchart id");
+          navigate("/");
+          return;
+        }
+
+        const latestVersion = await getLatestVersion(flowchartId);
+        const versionToLoad = latestVersion > 0 ? latestVersion : 1;
+        const flowchart = await getFlowchart(flowchartId, versionToLoad);
+
+        if (!isMounted) return;
+
+        if (!flowchart) {
+          toast.error("Flowchart not found");
+          navigate("/");
+          return;
+        }
+
+        const versionStyles = normalizeStyles(flowchart.styles ?? []);
+
+        const stylesMap = new Map<string, NodeStyle>();
+        normalizedGlobalStyles.forEach((style) => stylesMap.set(style.id, style));
+        versionStyles.forEach((style) => stylesMap.set(style.id, style));
+        const mergedStyles = Array.from(stylesMap.values());
 
         setNodes(
           flowchart.nodes.map((node) => ({
@@ -62,33 +125,36 @@ export default function FlowchartEditor() {
             type: "custom",
             data: {
               ...node.data,
-              style: normalizedStyles.find((s) => s.id === node.data.styleId),
+              style: mergedStyles.find((s) => s.id === node.data.styleId),
             },
           }))
         );
         setEdges(flowchart.edges);
-        setStyles(
-          normalizedStyles.length > 0 ? normalizedStyles : defaultStyles
-        );
+        setStyles(mergedStyles.length > 0 ? mergedStyles : normalizedGlobalStyles);
+        setRecentStyles(normalizedRecentStyles);
         setCurrentId(flowchart.id);
         setCurrentTitle(flowchart.title);
-      } else {
-        toast.error("Flowchart not found");
-        navigate("/");
+        setCurrentVersion(flowchart.version);
+        setHasChanges(false);
+        setLoadError(null);
+      } catch (error) {
+        console.error("Failed to load flowchart", error);
+        if (isMounted) {
+          setLoadError("Failed to load flowchart");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
-    } else {
-      // Create new flowchart
-      const {
-        id: newId,
-        version: newVersion,
-        title: newTitle,
-      } = createNewFlowchart();
-      setCurrentId(newId);
-      setCurrentVersion(newVersion);
-      setCurrentTitle(newTitle);
-      toast.success("New flowchart created");
-    }
-  }, [id, currentVersion, navigate]);
+    };
+
+    load();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [id, navigate, normalizeStyles]);
 
   useEffect(() => {
     const listener = {
@@ -107,6 +173,11 @@ export default function FlowchartEditor() {
   }, [commandStack]);
 
   const handleAddNode = useCallback(() => {
+    if (styles.length === 0) {
+      toast.error("No styles available. Create a style before adding nodes.");
+      return;
+    }
+
     const newNode = {
       id: `node-${Date.now()}`,
       type: "custom",
@@ -279,33 +350,146 @@ export default function FlowchartEditor() {
     [commandStack, nodes]
   );
 
-  const handleCreateStyle = useCallback((newStyle: NodeStyle) => {
-    saveStyle(newStyle);
-    setStyles(getAllStyles());
-    toast.success("New style created");
-  }, []);
+  const handleStyleUsage = useCallback(
+    async (style: NodeStyle) => {
+      const normalizedSource = normalizeStyles([style])[0] ?? style;
+      try {
+        const result = await markStyleAsRecentlyUsed(normalizedSource.id);
+        const latest = normalizeStyles([{ ...normalizedSource, ...result }])[0] ?? normalizedSource;
 
-  const handleEditStyle = useCallback(
-    (styleId: string, updatedStyle: NodeStyle) => {
-      updateStyle(updatedStyle);
-      setStyles((prevStyles) =>
-        prevStyles.map((style) => (style.id === styleId ? updatedStyle : style))
-      );
-      toast.success("Style updated");
+        setRecentStyles((prev) => {
+          const filtered = prev.filter((entry) => entry.id !== latest.id);
+          return [latest, ...filtered];
+        });
+
+        setStyles((prevStyles) => {
+          const exists = prevStyles.some((entry) => entry.id === latest.id);
+          if (exists) {
+            return prevStyles.map((entry) =>
+              entry.id === latest.id ? { ...entry, ...latest } : entry
+            );
+          }
+          return [...prevStyles, latest];
+        });
+
+        return latest;
+      } catch (error) {
+        console.error("Failed to update recently used styles", error);
+        toast.error("Failed to update recently used styles");
+        throw error;
+      }
     },
-    []
+    [markStyleAsRecentlyUsed, normalizeStyles]
   );
 
-  const handleDeleteStyle = useCallback((styleId: string) => {
-    deleteStyle(styleId);
-    setStyles((prevStyles) =>
-      prevStyles.filter((style) => style.id !== styleId)
-    );
-    toast.success("Style deleted");
-  }, []);
+  const handleRemoveRecentStyle = useCallback(
+    async (styleId: string) => {
+      try {
+        await removeStyleFromRecentlyUsed(styleId);
+        setRecentStyles((prev) => prev.filter((style) => style.id !== styleId));
+      } catch (error) {
+        console.error("Failed to remove recently used style", error);
+        toast.error("Failed to remove from recently used");
+        throw error;
+      }
+    },
+    [removeStyleFromRecentlyUsed]
+  );
 
-  const handleSave = useCallback(() => {
-    if (currentId !== null) {
+  const handleCreateStyle = useCallback(
+    async (newStyle: CreateNodeStyleInput) => {
+      try {
+        const created = await saveStyle(newStyle);
+        const normalizedCreated = normalizeStyles([created])[0] ?? created;
+        const latest = await handleStyleUsage(normalizedCreated);
+        toast.success("New style created");
+        return latest ?? normalizedCreated;
+      } catch (error) {
+        console.error("Failed to create style", error);
+        toast.error("Failed to create style");
+        throw error;
+      }
+    },
+    [handleStyleUsage, normalizeStyles]
+  );
+
+  const handleEditStyle = useCallback(
+    async (styleId: string, updatedStyle: CreateNodeStyleInput) => {
+      try {
+        const result = await updateStyle(styleId, updatedStyle);
+        const normalizedResult = normalizeStyles([result])[0] ?? result;
+        setStyles((prevStyles) => {
+          const exists = prevStyles.some((style) => style.id === styleId);
+          if (!exists) {
+            return [...prevStyles, normalizedResult];
+          }
+          return prevStyles.map((style) =>
+            style.id === styleId ? { ...style, ...normalizedResult } : style
+          );
+        });
+        setRecentStyles((prev) =>
+          prev.map((style) =>
+            style.id === styleId ? { ...style, ...normalizedResult } : style
+          )
+        );
+        setNodes((prevNodes) =>
+          prevNodes.map((node) =>
+            node.data.styleId === styleId
+              ? {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    style: normalizedResult,
+                  },
+                }
+              : node
+          )
+        );
+        toast.success("Style updated");
+        return normalizedResult;
+      } catch (error) {
+        console.error("Failed to update style", error);
+        toast.error("Failed to update style");
+        throw error;
+      }
+    },
+    [normalizeStyles, updateStyle]
+  );
+
+  const handleDeleteStyle = useCallback(async (styleId: string) => {
+    try {
+      await deleteStyle(styleId);
+      setStyles((prevStyles) =>
+        prevStyles.filter((style) => style.id !== styleId)
+      );
+      setRecentStyles((prev) => prev.filter((style) => style.id !== styleId));
+      toast.success("Style deleted");
+    } catch (error) {
+      console.error("Failed to delete style", error);
+      toast.error("Failed to delete style");
+      throw error;
+    }
+  }, [deleteStyle]);
+
+  const handleDeleteFlowchart = useCallback(async () => {
+    if (currentId === null) return;
+    try {
+      await deleteFlowchart(currentId);
+      toast.success("Flowchart deleted");
+      navigate("/");
+    } catch (error) {
+      console.error("Failed to delete flowchart", error);
+      toast.error("Failed to delete flowchart");
+    }
+  }, [currentId, navigate]);
+
+  const handleSave = useCallback(async () => {
+    if (currentId === null) {
+      toast.error("No flowchart to save");
+      return;
+    }
+
+    try {
       const cleanNodes = nodes.map(({ data, ...node }) => ({
         ...node,
         data: {
@@ -315,18 +499,22 @@ export default function FlowchartEditor() {
         },
       }));
 
-      const newVersion = saveFlowchart(
+      const result = await saveFlowchart(
         currentId,
-        currentTitle,
+        currentTitle ?? `Flowchart #${currentId}`,
         cleanNodes,
-        edges
+        edges,
+        styles
       );
-      setCurrentVersion(newVersion);
+      setCurrentVersion(result.version);
       setHasChanges(false);
-      toast.success(`Saved as version ${newVersion}`);
-      navigate(`/${currentId}/${newVersion}`, { replace: true });
+      toast.success(`Saved as version ${result.version}`);
+      navigate(`/${currentId}/${result.version}`, { replace: true });
+    } catch (error) {
+      console.error("Failed to save flowchart", error);
+      toast.error("Failed to save flowchart");
     }
-  }, [currentId, currentTitle, nodes, edges, navigate]);
+  }, [currentId, currentTitle, nodes, edges, styles, navigate]);
 
   const handleExportJson = useCallback(() => {
     const data = {
@@ -429,19 +617,13 @@ export default function FlowchartEditor() {
         hasChanges={hasChanges}
         hasPreview={id !== undefined}
         handleNavigate={handleNavigate}
-        onSwitchMode={() => navigate(`/${id}/${currentVersion}`)}
+        onSwitchMode={() => handleNavigate(`/${id}/${currentVersion}`)}
         onTitleChange={setCurrentTitle}
         onVersionChange={null}
         onAddNode={handleAddNode}
         onSave={handleSave}
         onExport={handleExportJson}
-        onDelete={() => {
-          if (currentId !== null) {
-            deleteFlowchart(currentId);
-            toast.success("Flowchart deleted");
-            navigate("/");
-          }
-        }}
+        onDelete={handleDeleteFlowchart}
         isUndoDisabled={commandStack.isUndoEmpty()}
         isRedoDisabled={commandStack.isRedoEmpty()}
         onUndo={handleUndo}
@@ -536,32 +718,55 @@ export default function FlowchartEditor() {
       </div> */}
 
       <div className="flex-1 relative">
-        <FlowCanvas
-          initialNodes={nodes}
-          initialEdges={edges}
-          styles={styles}
-          onNodesChange={handleNodesChange}
-          onNodeDragStart={handleNodeDragStart}
-          onNodeDragStop={handleNodeDragStop}
-          onEdgesChange={handleEdgesChange}
-          onNodeClick={handleNodeClick}
-          isEditable={true}
-        />
+        {isLoading ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
+            <div className="h-10 w-10 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+            <p className="text-sm">Loading flowchart…</p>
+          </div>
+        ) : loadError ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+            <p className="text-lg font-semibold">Unable to load this flowchart</p>
+            <p className="text-sm text-muted-foreground">{loadError}</p>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => navigate("/")}>
+                Back home
+              </Button>
+              <Button onClick={() => window.location.reload()}>Try again</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <FlowCanvas
+              initialNodes={nodes}
+              initialEdges={edges}
+              styles={styles}
+              onNodesChange={handleNodesChange}
+              onNodeDragStart={handleNodeDragStart}
+              onNodeDragStop={handleNodeDragStop}
+              onEdgesChange={handleEdgesChange}
+              onNodeClick={handleNodeClick}
+              isEditable={true}
+            />
 
-        {selectedNode && (
-          <NodeEditPanel
-            nodeId={selectedNode.id}
-            label={selectedNode.data.label}
-            description={selectedNode.data.description}
-            styleId={selectedNode.data.styleId}
-            styles={styles}
-            onClose={() => setSelectedNodeId(null)}
-            onSave={handleSaveNode}
-            onCreateStyle={handleCreateStyle}
-            onEditStyle={handleEditStyle}
-            onDeleteStyle={handleDeleteStyle}
-            onDeleteNode={handleDeleteNode}
-          />
+            {selectedNode && (
+              <NodeEditPanel
+                nodeId={selectedNode.id}
+                label={selectedNode.data.label}
+                description={selectedNode.data.description}
+                styleId={selectedNode.data.styleId}
+                styles={styles}
+                recentStyles={recentStyles}
+                onClose={() => setSelectedNodeId(null)}
+                onSave={handleSaveNode}
+                onCreateStyle={handleCreateStyle}
+                onEditStyle={handleEditStyle}
+                onDeleteStyle={handleDeleteStyle}
+                onStyleSelected={handleStyleUsage}
+                onRemoveRecentlyUsed={handleRemoveRecentStyle}
+                onDeleteNode={handleDeleteNode}
+              />
+            )}
+          </>
         )}
       </div>
     </div>

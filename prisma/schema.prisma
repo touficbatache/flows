@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Flowchart {
+  id        Int               @id @default(autoincrement())
+  title     String
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  versions  FlowchartVersion[]
+}
+
+model FlowchartVersion {
+  id          Int        @id @default(autoincrement())
+  flowchart   Flowchart  @relation(fields: [flowchartId], references: [id], onDelete: Cascade)
+  flowchartId Int
+  version     Int
+  title       String
+  nodes       Json
+  edges       Json
+  styles      Json
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([flowchartId, version])
+}
+
+model NodeStyle {
+  id        String   @id
+  name      String
+  description String?
+  externalUrl String?
+  color     String
+  icon      String?
+  image     String?
+  imageName String?
+  assetType String?
+  isCustom  Boolean  @default(false)
+  recent    RecentlyUsedStyle?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RecentlyUsedStyle {
+  id         Int       @id @default(autoincrement())
+  style      NodeStyle @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  styleId    String    @unique
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime  @default(now())
+}

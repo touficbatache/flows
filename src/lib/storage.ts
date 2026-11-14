@@ -1,19 +1,23 @@
+const API_BASE =
+  (typeof import.meta !== "undefined" &&
+    import.meta.env?.VITE_API_URL &&
+    import.meta.env.VITE_API_URL.replace(/\/$/, "")) ||
+  "/api";
+
 export interface NodeStyle {
   id: string;
   name: string;
   color: string;
-  icon?: string;
-  /**
-   * Data URL for uploaded image when the style uses a custom asset.
-   * Stored directly so styles remain portable in localStorage.
-   */
-  image?: string;
-  /**
-   * Original filename of the uploaded image (stored in public/images).
-   * Useful for referencing the image within the project structure.
-   */
-  imageName?: string;
-  assetType?: "emoji" | "image";
+  icon?: string | null;
+  image?: string | null;
+  imageName?: string | null;
+  assetType?: "emoji" | "image" | null;
+  description?: string | null;
+  externalUrl?: string | null;
+  isCustom?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  lastUsedAt?: string;
 }
 
 export interface FlowchartNode {
@@ -40,16 +44,70 @@ export interface Flowchart {
   title: string;
   nodes: FlowchartNode[];
   edges: FlowchartEdge[];
+  styles: NodeStyle[];
   createdAt: string;
 }
 
-export interface GlobalStorage {
-  flowcharts: Flowchart[];
-  styles: NodeStyle[];
+export interface CreateFlowchartResponse {
+  id: number;
+  version: number;
+  title: string;
 }
 
-const STORAGE_KEY = "flowcharts";
-const GLOBAL_STORAGE_KEY = "globalStorage";
+export interface SaveFlowchartResponse {
+  id: number;
+  version: number;
+  createdAt: string;
+}
+
+export interface AiGeneratedFlowchart {
+  title: string;
+  nodes: FlowchartNode[];
+  edges: FlowchartEdge[];
+}
+
+export type CreateNodeStyleInput = Omit<
+  NodeStyle,
+  "id" | "createdAt" | "updatedAt" | "lastUsedAt" | "isCustom"
+> & {
+  id?: string;
+};
+
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(options?.headers ?? {}),
+    },
+    ...options,
+  });
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const text = await response.text();
+  const isJson = response.headers
+    .get("content-type")
+    ?.toLowerCase()
+    .includes("application/json");
+  const payload =
+    text && isJson
+      ? JSON.parse(text)
+      : text
+      ? (text as unknown as T)
+      : undefined;
+
+  if (!response.ok) {
+    const message =
+      typeof payload === "object" && payload !== null && "error" in payload
+        ? (payload as { error: string }).error
+        : response.statusText || "Unexpected error";
+    throw new Error(message);
+  }
+
+  return payload as T;
+}
 
 export const defaultStyles: NodeStyle[] = [
   {
@@ -58,6 +116,7 @@ export const defaultStyles: NodeStyle[] = [
     icon: "⚡",
     color: "#ef4343",
     assetType: "emoji",
+    isCustom: false,
   },
   {
     id: "agent",
@@ -65,6 +124,7 @@ export const defaultStyles: NodeStyle[] = [
     icon: "🤖",
     color: "#11a4d4",
     assetType: "emoji",
+    isCustom: false,
   },
   {
     id: "condition",
@@ -72,6 +132,7 @@ export const defaultStyles: NodeStyle[] = [
     icon: "🔀",
     color: "hsl(142, 71%, 45%)",
     assetType: "emoji",
+    isCustom: false,
   },
   {
     id: "action",
@@ -79,6 +140,7 @@ export const defaultStyles: NodeStyle[] = [
     icon: "🎯",
     color: "#7c3bed",
     assetType: "emoji",
+    isCustom: false,
   },
   {
     id: "database",
@@ -86,6 +148,7 @@ export const defaultStyles: NodeStyle[] = [
     icon: "💾",
     color: "#667085",
     assetType: "emoji",
+    isCustom: false,
   },
   {
     id: "api",
@@ -93,119 +156,149 @@ export const defaultStyles: NodeStyle[] = [
     icon: "🔌",
     color: "#f97015",
     assetType: "emoji",
+    isCustom: false,
   },
 ];
 
-function getGlobalStorage(): GlobalStorage {
-  const data = localStorage.getItem(GLOBAL_STORAGE_KEY);
-  if (data) {
-    return JSON.parse(data);
-  } else {
-    const initialData: GlobalStorage = {
-      flowcharts: [],
-      styles: defaultStyles,
-    };
-    localStorage.setItem(GLOBAL_STORAGE_KEY, JSON.stringify(initialData));
-    return initialData;
+export async function getAllFlowcharts(): Promise<Flowchart[]> {
+  return request<Flowchart[]>("/flowcharts");
+}
+
+export async function getFlowchart(
+  id: number,
+  version: number
+): Promise<Flowchart | null> {
+  try {
+    return await request<Flowchart>(`/flowcharts/${id}/versions/${version}`);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("not found")) {
+      return null;
+    }
+    throw error;
   }
 }
 
-function saveGlobalStorage(globalStorage: GlobalStorage): void {
-  localStorage.setItem(GLOBAL_STORAGE_KEY, JSON.stringify(globalStorage));
+export async function getLatestVersion(id: number): Promise<number> {
+  const result = await request<{ version: number }>(`/flowcharts/${id}/latest`);
+  return result?.version ?? 0;
 }
 
-export function getAllFlowcharts(): Flowchart[] {
-  return getGlobalStorage().flowcharts;
-}
-
-export function getFlowchart(id: number, version: number): Flowchart | null {
-  const flowcharts = getAllFlowcharts();
-  return flowcharts.find((f) => f.id === id && f.version === version) || null;
-}
-
-export function getLatestVersion(id: number): number {
-  const flowcharts = getAllFlowcharts();
-  const versions = flowcharts.filter((f) => f.id === id).map((f) => f.version);
-  return versions.length > 0 ? Math.max(...versions) : 0;
-}
-
-export function saveFlowchart(
+export async function saveFlowchart(
   id: number,
   title: string,
   nodes: FlowchartNode[],
-  edges: FlowchartEdge[]
-): number {
-  const globalStorage = getGlobalStorage();
-  const latestVersion = getLatestVersion(id);
-  const newVersion = latestVersion + 1;
-
-  const newFlowchart: Flowchart = {
-    id,
-    version: newVersion,
-    title,
-    nodes,
-    edges,
-    createdAt: new Date().toISOString(),
-  };
-
-  globalStorage.flowcharts.push(newFlowchart);
-  saveGlobalStorage(globalStorage);
-
-  return newVersion;
+  edges: FlowchartEdge[],
+  styles: NodeStyle[]
+): Promise<SaveFlowchartResponse> {
+  return request<SaveFlowchartResponse>(`/flowcharts/${id}/versions`, {
+    method: "POST",
+    body: JSON.stringify({ title, nodes, edges, styles }),
+  });
 }
 
-export function createNewFlowchart(): {
-  id: number;
-  version: number;
-  title: string;
-} {
-  const globalStorage = getGlobalStorage();
-  const maxId = globalStorage.flowcharts.reduce(
-    (max, f) => Math.max(max, f.id),
-    0
-  );
-  const newId = maxId + 1;
-
-  return { id: newId, version: 1, title: "Flowchart #" + newId };
+export async function createNewFlowchart(
+  title?: string
+): Promise<CreateFlowchartResponse> {
+  return request<CreateFlowchartResponse>("/flowcharts", {
+    method: "POST",
+    body: JSON.stringify({ title }),
+  });
 }
 
-export function getAllVersions(id: number): Flowchart[] {
-  const flowcharts = getAllFlowcharts();
-  return flowcharts
-    .filter((f) => f.id === id)
-    .sort((a, b) => b.version - a.version);
+export async function getAllVersions(id: number): Promise<Flowchart[]> {
+  return request<Flowchart[]>(`/flowcharts/${id}/versions`);
 }
 
-export function deleteFlowchart(id: number): void {
-  const globalStorage = getGlobalStorage();
-  globalStorage.flowcharts = globalStorage.flowcharts.filter(
-    (f) => f.id !== id
-  );
-  saveGlobalStorage(globalStorage);
+export async function deleteFlowchart(id: number): Promise<void> {
+  await request<void>(`/flowcharts/${id}`, { method: "DELETE" });
 }
 
-export function getAllStyles(): NodeStyle[] {
-  return getGlobalStorage().styles;
+export async function getAllStyles(): Promise<NodeStyle[]> {
+  try {
+    const styles = await request<NodeStyle[]>("/styles");
+    return styles.length > 0 ? styles : defaultStyles;
+  } catch (error) {
+    console.error("Failed to load styles. Falling back to defaults.", error);
+    return defaultStyles;
+  }
 }
 
-export function saveStyle(newStyle: NodeStyle): void {
-  const globalStorage = getGlobalStorage();
-  globalStorage.styles.push(newStyle);
-  saveGlobalStorage(globalStorage);
+export async function getStyleById(styleId: string): Promise<NodeStyle | null> {
+  try {
+    return await request<NodeStyle>(`/styles/${encodeURIComponent(styleId)}`);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("not found")) {
+      return null;
+    }
+    throw error;
+  }
 }
 
-export function updateStyle(updatedStyle: NodeStyle): void {
-  const globalStorage = getGlobalStorage();
-  globalStorage.styles = globalStorage.styles.map((style) =>
-    style.id === updatedStyle.id ? updatedStyle : style
-  );
-  saveGlobalStorage(globalStorage);
+export async function getRecentlyUsedStyles(): Promise<NodeStyle[]> {
+  try {
+    return await request<NodeStyle[]>("/styles/recent");
+  } catch (error) {
+    console.error("Failed to load recently used styles", error);
+    return [];
+  }
 }
 
-export function deleteStyle(styleId: string): void {
-  const globalStorage = getGlobalStorage();
-  globalStorage.styles = globalStorage.styles.filter(
-    (style) => style.id !== styleId
-  );
-  saveGlobalStorage(globalStorage);
+export async function searchStyles(query: string): Promise<NodeStyle[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) {
+    return [];
+  }
+
+  const params = new URLSearchParams({ q: trimmed });
+  return request<NodeStyle[]>(`/styles?${params.toString()}`);
+}
+
+export async function markStyleAsRecentlyUsed(
+  styleId: string
+): Promise<NodeStyle> {
+  return request<NodeStyle>(`/styles/${encodeURIComponent(styleId)}/recent`, {
+    method: "POST",
+  });
+}
+
+export async function removeStyleFromRecentlyUsed(
+  styleId: string
+): Promise<void> {
+  await request<void>(`/styles/${encodeURIComponent(styleId)}/recent`, {
+    method: "DELETE",
+  });
+}
+
+export async function saveStyle(
+  newStyle: CreateNodeStyleInput
+): Promise<NodeStyle> {
+  return request<NodeStyle>("/styles", {
+    method: "POST",
+    body: JSON.stringify(newStyle),
+  });
+}
+
+export async function updateStyle(
+  styleId: string,
+  updatedStyle: CreateNodeStyleInput
+): Promise<NodeStyle> {
+  return request<NodeStyle>(`/styles/${styleId}`, {
+    method: "PUT",
+    body: JSON.stringify(updatedStyle),
+  });
+}
+
+export async function deleteStyle(styleId: string): Promise<void> {
+  await request<void>(`/styles/${styleId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function generateFlowchartFromPrompt(
+  prompt: string
+): Promise<AiGeneratedFlowchart> {
+  return request<AiGeneratedFlowchart>("/ai/flowchart", {
+    method: "POST",
+    body: JSON.stringify({ prompt }),
+  });
 }
