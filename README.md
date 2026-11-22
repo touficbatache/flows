@@ -4,6 +4,8 @@ A flowchart editor for sketching automations: triggers, AI agents, conditions, a
 
 Built with React, Vite, React Flow and shadcn/ui on the front end, and a small Node server with Prisma and PostgreSQL behind it.
 
+> **Status: local prototype, no longer developed.** Flows runs on `localhost` only. It was built to validate the editor and the AI drafting flow, and development stopped before the multi-user layer (see [Roadmap](#roadmap-discontinued)). Do not deploy it as is.
+
 ## Features
 
 - Drag-and-drop canvas with nodes, edges, undo and redo.
@@ -25,9 +27,19 @@ npm run dev               # app on http://localhost:8080 (proxies /api to the se
 
 `OPENAI_API_KEY` is only needed for AI generation. Everything else works without it.
 
-## Before you deploy
+## Why it is localhost only
 
-The API has no authentication and allows requests from any origin. Anyone who can reach it can read and change flowcharts, and spend your OpenAI credit through `/api/ai/flowchart`. Keep it local, or put it behind authentication before you host it.
+The API has no authentication and accepts requests from any origin. Anyone who can reach it can read and change every flowchart, and spend the server's OpenAI credit through `/api/ai/flowchart`. That is fine on your own machine and unsafe anywhere else.
+
+## Roadmap (discontinued)
+
+The next phase was planned but never built:
+
+- **Authentication and SSO:** sign-in with OAuth 2.0 / OpenID Connect (Google, Microsoft) and SAML SSO for companies, with sessions handled server-side.
+- **Workspaces and access control:** per-user and team workspaces, owner / editor / viewer roles, and share links scoped to a single flowchart version.
+- **API hardening:** an origin allowlist instead of `*`, input validation on every route, rate limiting and per-user quotas on AI generation, and audit logs of who changed what.
+- **Real-time collaboration:** several people editing the same canvas with live cursors.
+- **Export:** turn a flowchart into a runnable automation for tools like n8n.
 
 ## License
 
