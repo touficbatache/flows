@@ -1,17 +1,19 @@
 # Flows
 
-A flowchart editor for sketching automations: triggers, AI agents, conditions, actions, databases and APIs. Draw a flow by hand, or describe it in a sentence and let AI draft it. Each save creates a new version you can go back to.
+Collaborative flowchart editor for designing automations with natural language or by hand, and generating shareable, versioned documentation with your team.
+
+Describe an automation in plain language and let AI draft the flowchart, or build it node by node from triggers, AI agents, conditions, actions, databases and APIs. Every save becomes a new version with its own read-only page you can share, so the flowchart doubles as living documentation of how the automation works.
 
 Built with React, Vite, React Flow and shadcn/ui on the front end, and a small Node server with Prisma and PostgreSQL behind it.
 
-> **Status: local prototype, no longer developed.** Flows runs on `localhost` only. It was built to validate the editor and the AI drafting flow, and development stopped before the multi-user layer (see [Roadmap](#roadmap-discontinued)). Do not deploy it as is.
+> **Status: local prototype, no longer developed.** The editor, AI drafting, versioning and shareable version pages are built and run on `localhost`. The team layer (accounts, workspaces, roles, live co-editing) was designed, but development stopped before it was built (see [Roadmap](#roadmap-the-team-layer-not-built)). Do not deploy it as is.
 
 ## Features
 
-- Drag-and-drop canvas with nodes, edges, undo and redo.
-- Node styles with emoji or image icons, custom styles and a "recently used" list.
-- **Generate with AI:** type a prompt, get a draft flowchart (OpenAI).
-- Versioned saves, and a read-only preview of each version.
+- **Natural language or by hand:** type a prompt and get a draft flowchart (OpenAI), then refine it on a drag-and-drop canvas with undo and redo.
+- **Automation building blocks:** triggers, AI agents, conditions, actions, databases and APIs, with emoji or image icons, custom styles and a "recently used" list.
+- **Versioned documentation:** each save creates a new version, and you can go back to any earlier one.
+- **Shareable pages:** every version has a read-only preview link to share with the people who need to understand the flow.
 
 ## Run it locally
 
@@ -31,9 +33,9 @@ npm run dev               # app on http://localhost:8080 (proxies /api to the se
 
 The API has no authentication and accepts requests from any origin. Anyone who can reach it can read and change every flowchart, and spend the server's OpenAI credit through `/api/ai/flowchart`. That is fine on your own machine and unsafe anywhere else.
 
-## Roadmap (discontinued)
+## Roadmap: the team layer (not built)
 
-The next phase was planned but never built:
+The collaboration layer was planned but never built:
 
 - **Authentication and SSO:** sign-in with OAuth 2.0 / OpenID Connect (Google, Microsoft) and SAML SSO for companies, with sessions handled server-side.
 - **Workspaces and access control:** per-user and team workspaces, owner / editor / viewer roles, and share links scoped to a single flowchart version.
