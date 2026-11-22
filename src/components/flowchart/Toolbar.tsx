@@ -3,10 +3,10 @@ import {
   Plus,
   Save,
   Eye,
-  FileJson,
-  Trash2,
-  MoreVertical,
-  Edit,
+  FileBraces,
+  Trash,
+  EllipsisVertical,
+  SquarePen,
   Undo,
   Redo,
 } from "lucide-react";
@@ -109,26 +109,26 @@ export default function Toolbar({
               </Select>
             )}
             <DropdownMenu>
-              <DropdownMenuTrigger>
+              <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
                   type="button"
                   aria-label="Open menu"
                   className="p-1 aspect-square"
                 >
-                  <MoreVertical className="h-4 w-4" />
+                  <EllipsisVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-48">
                 <DropdownMenuItem className="gap-2" onClick={onExport}>
-                  <FileJson className="h-4 w-4" />
+                  <FileBraces className="h-4 w-4" />
                   Export JSON
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={onDelete}
-                  className="text-destructive focus:text-destructive hover:!bg-destructive hover:!text-destructive-foreground gap-2"
+                  className="text-destructive focus:text-destructive hover:bg-destructive! hover:text-destructive-foreground! gap-2"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Trash className="h-4 w-4" />
                   Delete flowchart
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -208,7 +208,7 @@ export default function Toolbar({
             onClick={() => onSwitchMode("edit")}
             className="gap-2"
           >
-            <Edit className="h-4 w-4" />
+            <SquarePen className="h-4 w-4" />
             Edit flowchart
           </Button>
         )}

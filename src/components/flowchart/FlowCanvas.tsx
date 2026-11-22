@@ -11,10 +11,9 @@ import ReactFlow, {
   MiniMap,
   NodeTypes,
 } from "reactflow";
-import "reactflow/dist/style.css";
 import { CustomNode } from "./CustomNode";
 import { NodeStyle } from "@/lib/storage";
-import { Trash2, X } from "lucide-react";
+import { Trash, X } from "lucide-react";
 
 interface FlowCanvasProps {
   initialNodes: Node[];
@@ -188,7 +187,7 @@ export const FlowCanvas = ({
               setRightClickedEdge(null);
             }}
           >
-            <Trash2 className="inline h-4 w-4 mr-2" />
+            <Trash className="inline h-4 w-4 mr-2" />
             Delete Edge
           </button>
         </div>

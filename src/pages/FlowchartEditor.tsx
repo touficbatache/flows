@@ -671,7 +671,7 @@ export default function FlowchartEditor() {
                     toast.success("Flowchart deleted");
                     navigate("/");
                   }}
-                  className="text-destructive focus:text-destructive hover:!bg-destructive hover:!text-destructive-foreground gap-2"
+                  className="text-destructive focus:text-destructive hover:bg-destructive! hover:text-destructive-foreground! gap-2"
                 >
                   <Trash2 className="h-4 w-4" />
                   Delete flowchart

@@ -23,20 +23,20 @@ export const CustomNode = memo(({ data, selected }: NodeProps) => {
         id="left"
         type="target"
         position={Position.Left}
-        className="w-3 h-3 !bg-primary"
+        className="w-3 h-3 bg-primary!"
       />
 
       <Handle
         id="top"
         type="target"
         position={Position.Top}
-        className="w-3 h-3 !bg-primary"
+        className="w-3 h-3 bg-primary!"
       />
 
       <div className="flex items-start gap-3">
         <div
           className={cn(
-            "flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-lg overflow-hidden",
+            "shrink-0 w-10 h-10 flex items-center justify-center rounded-lg overflow-hidden",
             showImage ? "bg-transparent" : "text-2xl"
           )}
           style={{
@@ -75,14 +75,14 @@ export const CustomNode = memo(({ data, selected }: NodeProps) => {
         id="right"
         type="source"
         position={Position.Right}
-        className="w-3 h-3 !bg-primary"
+        className="w-3 h-3 bg-primary!"
       />
 
       <Handle
         id="bottom"
         type="source"
         position={Position.Bottom}
-        className="w-3 h-3 !bg-primary"
+        className="w-3 h-3 bg-primary!"
       />
     </div>
   );

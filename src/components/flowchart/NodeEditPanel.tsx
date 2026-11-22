@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, ChangeEvent } from "react";
-import { X, Trash2, Plus, Edit, History, Loader2 } from "lucide-react";
+import { X, Trash, Plus, SquarePen, RotateCcwClock, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -353,7 +353,7 @@ export const NodeEditPanel = ({
                 <div className="absolute left-0 right-0 top-full z-40 mt-2 max-h-64 overflow-y-auto rounded-md border bg-popover shadow-lg">
                   {isSearching ? (
                     <div className="flex items-center gap-2 p-3 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
                       Searching…
                     </div>
                   ) : searchResults.length > 0 ? (
@@ -451,11 +451,11 @@ export const NodeEditPanel = ({
                             className="gap-2"
                             onClick={() => handleEditStyleClick(style)}
                           >
-                            <Edit className="h-4 w-4" />
+                            <SquarePen className="h-4 w-4" />
                             Edit
                           </ContextMenuItem>
                           <ContextMenuItem
-                            className="gap-2 text-destructive focus:text-destructive hover:!bg-destructive hover:!text-destructive-foreground"
+                            className="gap-2 text-destructive focus:text-destructive hover:bg-destructive! hover:text-destructive-foreground!"
                             onClick={async () => {
                               try {
                                 await onDeleteStyle(style.id);
@@ -479,7 +479,7 @@ export const NodeEditPanel = ({
                               }
                             }}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash className="h-4 w-4" />
                             Delete
                           </ContextMenuItem>
                         </>
@@ -497,7 +497,7 @@ export const NodeEditPanel = ({
                           }
                         }}
                       >
-                        <History className="h-4 w-4" />
+                        <RotateCcwClock className="h-4 w-4" />
                         Remove from Recently Used
                       </ContextMenuItem>
                     </ContextMenuContent>
@@ -776,7 +776,7 @@ export const NodeEditPanel = ({
           className="w-full"
           onClick={() => onDeleteNode(nodeId)}
         >
-          <Trash2 className="h-4 w-4" /> Delete node
+          <Trash className="h-4 w-4" /> Delete node
         </Button>
       </div>
 

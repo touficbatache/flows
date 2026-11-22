@@ -15,7 +15,7 @@ Built with React, Vite, React Flow and shadcn/ui on the front end, and a small N
 
 ## Run it locally
 
-You need Node.js 18+ and a PostgreSQL database.
+You need Node.js 20.19+ (or 22.13+) and a PostgreSQL database: a plain `postgresql://` URL or a Prisma Postgres / Accelerate `prisma+postgres://` URL both work.
 
 ```sh
 npm install

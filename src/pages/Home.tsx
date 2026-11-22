@@ -27,7 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Loader2, PenSquare, Plus, Sparkles, Workflow } from "lucide-react";
+import { LoaderCircle, SquarePen, Plus, Sparkles, Workflow } from "lucide-react";
 
 export default function Home() {
   const navigate = useNavigate();
@@ -309,14 +309,14 @@ export default function Home() {
               className={cn(
                 "flex h-full flex-col gap-3 rounded-xl border-2 border-muted bg-card p-5 text-left transition-all",
                 "enabled:hover:border-primary enabled:hover:shadow-lg enabled:hover:scale-[1.02]",
-                "enabled:focus-visible:outline-none enabled:focus-visible:ring-2 enabled:focus-visible:ring-primary",
+                "enabled:focus-visible:outline-hidden enabled:focus-visible:ring-2 enabled:focus-visible:ring-primary",
                 "disabled:cursor-not-allowed disabled:opacity-70",
                 selectedOption === "manual" &&
                   "border-primary shadow-lg scale-[1.01]"
               )}
             >
               <div className="flex items-center justify-between">
-                <PenSquare className="h-6 w-6 text-primary" />
+                <SquarePen className="h-6 w-6 text-primary" />
                 <span className="text-xs uppercase tracking-wide text-muted-foreground">
                   Manual
                 </span>
@@ -337,7 +337,7 @@ export default function Home() {
               className={cn(
                 "flex h-full flex-col gap-3 rounded-xl border-2 border-muted bg-card p-5 text-left transition-all",
                 "enabled:hover:border-primary enabled:hover:shadow-lg enabled:hover:scale-[1.02]",
-                "enabled:focus-visible:outline-none enabled:focus-visible:ring-2 enabled:focus-visible:ring-primary",
+                "enabled:focus-visible:outline-hidden enabled:focus-visible:ring-2 enabled:focus-visible:ring-primary",
                 "disabled:cursor-not-allowed disabled:opacity-70",
                 selectedOption === "ai" &&
                   "border-primary shadow-lg scale-[1.01]"
@@ -365,7 +365,7 @@ export default function Home() {
               onClick={handleManualCreation}
               disabled={isGenerating}
             >
-              <PenSquare className="h-4 w-4" />
+              <SquarePen className="h-4 w-4" />
               Create manually
             </Button>
           )}
@@ -400,7 +400,7 @@ export default function Home() {
               >
                 {isGenerating ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
                     Creating flowchart…
                   </>
                 ) : (

@@ -2,8 +2,17 @@ import "dotenv/config";
 import http from "http";
 import { randomUUID } from "crypto";
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 
-const prisma = new PrismaClient();
+// Prisma 7 needs either a driver adapter (postgresql:// URLs) or an
+// Accelerate URL (prisma:// or prisma+postgres:// URLs, e.g. Prisma Postgres).
+const DATABASE_URL = process.env.DATABASE_URL;
+const usesAccelerate = /^prisma(\+postgres)?:\/\//.test(DATABASE_URL ?? "");
+const prisma = usesAccelerate
+  ? new PrismaClient({ accelerateUrl: DATABASE_URL })
+  : new PrismaClient({
+      adapter: new PrismaPg({ connectionString: DATABASE_URL }),
+    });
 
 const PORT = process.env.PORT || 3001;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
