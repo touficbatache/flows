@@ -1,73 +1,34 @@
-# Welcome to your Lovable project
+# Flows
 
-## Project info
+A flowchart editor for sketching automations: triggers, AI agents, conditions, actions, databases and APIs. Draw a flow by hand, or describe it in a sentence and let AI draft it. Each save creates a new version you can go back to.
 
-**URL**: https://lovable.dev/projects/8499e016-da1f-41c3-b3bf-46a894de84e9
+Built with React, Vite, React Flow and shadcn/ui on the front end, and a small Node server with Prisma and PostgreSQL behind it.
 
-## How can I edit this code?
+## Features
 
-There are several ways of editing your application.
+- Drag-and-drop canvas with nodes, edges, undo and redo.
+- Node styles with emoji or image icons, custom styles and a "recently used" list.
+- **Generate with AI:** type a prompt, get a draft flowchart (OpenAI).
+- Versioned saves, and a read-only preview of each version.
 
-**Use Lovable**
+## Run it locally
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/8499e016-da1f-41c3-b3bf-46a894de84e9) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+You need Node.js 18+ and a PostgreSQL database.
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+npm install
+cp .env.example .env      # then fill in DATABASE_URL and OPENAI_API_KEY
+npx prisma migrate deploy
+npm run server            # API on http://localhost:3001
+npm run dev               # app on http://localhost:8080 (proxies /api to the server)
 ```
 
-**Edit a file directly in GitHub**
+`OPENAI_API_KEY` is only needed for AI generation. Everything else works without it.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Before you deploy
 
-**Use GitHub Codespaces**
+The API has no authentication and allows requests from any origin. Anyone who can reach it can read and change flowcharts, and spend your OpenAI credit through `/api/ai/flowchart`. Keep it local, or put it behind authentication before you host it.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## License
 
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/8499e016-da1f-41c3-b3bf-46a894de84e9) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+MIT, see [LICENSE](LICENSE).
